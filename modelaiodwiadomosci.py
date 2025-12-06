@@ -77,7 +77,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("✨ Rozszerzony Web Scraper Artykułów")
+st.title("✨ Podstawowy Web Scraper by Arek")
 st.markdown("Wprowadź adres URL, aby pobrać tytuł, treść, **bieżącą datę wyszukiwania** i powiązane linki.")
 
 if st.button("Wyczyść Pamięć Podręczną Scrapera"):
@@ -129,4 +129,5 @@ if st.button("Pobierz i Przetwórz Treść", type="primary"):
                 for text, full_url in links:
                     st.markdown(f"* [{text}]({full_url})")
             else:
+
                 st.info("Nie znaleziono wyraźnie powiązanych linków.") 
