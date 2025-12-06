@@ -2,10 +2,13 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import time
-import datetime # Nowy import do pobierania bieżącego czasu
+import datetime 
+import requests.compat 
 
-# Używamy st.cache_data, aby Streamlit zapamiętał wyniki dla danego URL
-@st.cache_data
+# Minimalna długość akapitu, aby uznać go za część głównej treści (np. 100 znaków)
+MIN_PARAGRAPH_LENGTH = 100
+
+@st.cache_data 
 def simple_article_scraper(url):
     """
     Pobiera treść strony, wyodrębnia tytuł (z ulepszoną heurystyką), 
@@ -86,26 +89,26 @@ def simple_article_scraper(url):
         return title, article_text, search_timestamp, related_links, total_paragraphs, total_words
 
     except requests.exceptions.RequestException as e:
-        return f"Błąd połączenia/HTTP: {e}", None, None, None
+        return f"Błąd połączenia/HTTP: {e}", None, None, None, None, None
     except Exception as e:
-        return f"Wystąpił nieoczekiwany błąd podczas przetwarzania: {e}", None, None, None
+        return f"Wystąpił nieoczekiwany błąd podczas przetwarzania: {e}", None, None, None, None, None
 
 ## =================================
-## STREAMLIT UI
+## STREAMLIT UI (Interfejs Użytkownika)
 ## =================================
 
 st.set_page_config(
-    page_title="Podstawowy Web Scraper by Arek",
+    page_title="Ulepszony Web Scraper",
     page_icon="✨",
     layout="wide"
 )
 
-st.title("✨ Podstawowy Web Scraper by Arek")
-st.markdown("Wprowadź adres URL, aby pobrać tytuł, treść, **bieżącą datę wyszukiwania** i powiązane linki.")
+st.title("✨ Ulepszony Web Scraper Artykułów (V2)")
+st.markdown("Poprawiona heurystyka tytułu i filtrowanie treści. Zapewnia opis ilościowy akapitów.")
 
 if st.button("Wyczyść Pamięć Podręczną Scrapera"):
     st.cache_data.clear()
-    st.success("Pamięć podręczna Streamlit została wyczyszczona. Wyszukiwanie dla tego samego URL będzie wykonane od nowa.")
+    st.success("Pamięć podręczna Streamlit została wyczyszczona.")
 
 input_url = st.text_input(
     "Adres URL Artykułu",
@@ -117,9 +120,15 @@ if st.button("Pobierz i Przetwórz Treść", type="primary"):
         st.warning("Proszę wprowadzić prawidłowy adres URL.")
     else:
         with st.spinner('Pobieranie, przetwarzanie i analiza strony...'):
-            # Zmienna 'timestamp' zawiera teraz bieżącą datę/godzinę wykonania
-            title, content, timestamp, links = simple_article_scraper(input_url)
-
+            # Odebranie dodatkowych zmiennych (total_paragraphs, total_words)
+            results = simple_article_scraper(input_url)
+            
+            # Przypisanie odebranych wyników do zmiennych
+            if results[1] is not None:
+                title, content, timestamp, links, total_paragraphs, total_words = results
+            else:
+                title, content, timestamp, links = results[:4] # W przypadku błędu
+                
         st.divider()
         st.header("Wyniki Scrapingu")
         
@@ -128,18 +137,28 @@ if st.button("Pobierz i Przetwórz Treść", type="primary"):
         else:
             st.success("✅ Pobrano i przetworzono treść.")
             
+            # Wiersz 1: Data i Tytuł
             col_date, col_title = st.columns([1, 3])
             
             with col_date:
                 st.subheader("📅 Data i Godzina Wyszukiwania:")
-                # Wyświetlamy bieżący czas
                 st.info(timestamp) 
             
             with col_title:
-                st.subheader("📜 Tytuł:")
+                st.subheader("📜 Tytuł (Ulepszona Heurystyka):")
                 st.code(title, language="text")
 
-            st.subheader("📝 Treść Artykułu (Akapity):")
+            # Wiersz 2: Opis Akapitów
+            st.subheader("📊 Opis Akapitów (Analiza Ilościowa):")
+            col_words, col_paragraphs = st.columns(2)
+            
+            with col_words:
+                st.metric("Suma Słów w Treści", f"{total_words}")
+            
+            with col_paragraphs:
+                st.metric(f"Liczba Akapitów (> {MIN_PARAGRAPH_LENGTH} zn.)", f"{total_paragraphs}")
+
+            st.subheader("📝 Treść Artykułu (Przefiltrowana):")
             st.text_area(
                 "Pełny Tekst", 
                 content, 
@@ -152,6 +171,6 @@ if st.button("Pobierz i Przetwórz Treść", type="primary"):
                 for text, full_url in links:
                     st.markdown(f"* [{text}]({full_url})")
             else:
+                st.info("Nie znaleziono wyraźnie powiązanych linków.")
 
-                st.info("Nie znaleziono wyraźnie powiązanych linków.") 
 
