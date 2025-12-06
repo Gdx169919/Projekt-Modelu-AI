@@ -98,12 +98,12 @@ def simple_article_scraper(url):
 ## =================================
 
 st.set_page_config(
-    page_title="Ulepszony Web Scraper",
+    page_title="Podstawowy Web Scraper by Arek",
     page_icon="✨",
     layout="wide"
 )
 
-st.title("✨ Ulepszony Web Scraper Artykułów (V2)")
+st.title("✨ Podstawowy Web Scraper by Arek")
 st.markdown("Poprawiona heurystyka tytułu i filtrowanie treści. Zapewnia opis ilościowy akapitów.")
 
 if st.button("Wyczyść Pamięć Podręczną Scrapera"):
@@ -172,5 +172,6 @@ if st.button("Pobierz i Przetwórz Treść", type="primary"):
                     st.markdown(f"* [{text}]({full_url})")
             else:
                 st.info("Nie znaleziono wyraźnie powiązanych linków.")
+
 
 
