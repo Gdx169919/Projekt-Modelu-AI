@@ -8,12 +8,12 @@ import datetime # Nowy import do pobierania bieżącego czasu
 @st.cache_data
 def simple_article_scraper(url):
     """
-    Pobiera treść strony, wyodrębnia tytuł, treść, oraz ustala datę wyszukiwania.
+    Pobiera treść strony, wyodrębnia tytuł (z ulepszoną heurystyką), 
+    filtruje i analizuje akapity oraz ustala datę wyszukiwania.
     """
     try:
         # --- 1. Pobranie Bieżącej Daty i Godziny ---
         current_time = datetime.datetime.now()
-        # Formatowanie do czytelnego ciągu tekstowego: RRRR-MM-DD GG:MM:SS
         search_timestamp = current_time.strftime("%Y-%m-%d %H:%M:%S")
         
         headers = {
@@ -29,18 +29,41 @@ def simple_article_scraper(url):
         title = "Tytuł nie znaleziony"
         article_text = ""
         related_links = []
-
-        # --- 2. Ekstrakcja Tytułu ---
-        title_tag = soup.find('h1')
-        if not title_tag:
-            title_tag = soup.find('title')
-        title = title_tag.text.strip() if title_tag else title
         
-        # --- 3. Ekstrakcja Głównej Treści ---
-        paragraphs = soup.find_all('p')
-        article_text = '\n\n'.join([p.text.strip() for p in paragraphs if p.text.strip()])
+        # --- 2. ULEPSZONA Ekstrakcja Tytułu ---
+        # A. Spróbuj pobrać tag Open Graph (najbardziej wiarygodny dla newsów)
+        og_title_tag = soup.find('meta', property='og:title')
+        if og_title_tag and og_title_tag.get('content'):
+            title = og_title_tag['content'].strip()
+        
+        # B. Jeśli og:title nie działa, sprawdź <h1>
+        elif soup.find('h1'):
+            title = soup.find('h1').text.strip()
+        
+        # C. Ostatecznie, użyj tagu <title>
+        elif soup.find('title'):
+            title = soup.find('title').text.strip()
 
-        # --- 4. Ekstrakcja Innych Artykułów (Jak w poprzedniej wersji) ---
+        # --- 3. ULEPSZONA Ekstrakcja i Analiza Głównej Treści ---
+        
+        # Znalezienie wszystkich tagów akapitów <p>
+        paragraphs = soup.find_all('p')
+        
+        # Filtracja: bierzemy tylko te akapity, które są wystarczająco długie
+        # (redukuje ryzyko wzięcia podpisów pod zdjęciami, menu, czy reklam)
+        filtered_paragraphs = [
+            p.text.strip() for p in paragraphs 
+            if p.text.strip() and len(p.text.strip()) > MIN_PARAGRAPH_LENGTH
+        ]
+        
+        # Połączenie przefiltrowanych akapitów
+        article_text = '\n\n'.join(filtered_paragraphs)
+        
+        # DANE DLA OPISU AKAPITÓW/TREŚCI:
+        total_paragraphs = len(filtered_paragraphs)
+        total_words = len(article_text.split())
+
+        # --- 4. Ekstrakcja Innych Artykułów (Bez zmian) ---
         all_links = soup.find_all('a', href=True)
         
         for link in all_links:
@@ -59,8 +82,8 @@ def simple_article_scraper(url):
         
         related_links = related_links[:10]
         
-        # Zmieniona wartość zwracana: zamiast daty ze strony, zwracamy bieżący czas
-        return title, article_text, search_timestamp, related_links
+        # Zwracamy tytuł, treść, czas, linki ORAZ dane do opisu akapitów
+        return title, article_text, search_timestamp, related_links, total_paragraphs, total_words
 
     except requests.exceptions.RequestException as e:
         return f"Błąd połączenia/HTTP: {e}", None, None, None
@@ -131,3 +154,4 @@ if st.button("Pobierz i Przetwórz Treść", type="primary"):
             else:
 
                 st.info("Nie znaleziono wyraźnie powiązanych linków.") 
+
